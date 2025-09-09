@@ -256,7 +256,7 @@
     <div id="deepar-canvas-container">
       <div class="loading-overlay" id="loading-overlay">
         <div class="loading-spinner"></div>
-        <p id="loading-text">Initializing DeepAR...</p>
+        <p id="loading-text">Loading Basketball Effect...</p>
       </div>
       <canvas id="deepar-canvas"></canvas>
     </div>
@@ -265,7 +265,7 @@
       <button id="start-ar" disabled>Start AR Experience</button>
       <button id="toggle-camera" disabled>Switch Camera</button>
       <button id="take-screenshot" disabled>Take Screenshot</button>
-      <button id="upload-effect">Upload Effect File</button>
+      <button id="upload-effect">Upload Different Effect</button>
     </div>
     
     <div class="status-panel">
@@ -287,7 +287,7 @@
         <li>Check that WebGL is enabled (visit <a href="https://get.webgl.org/" target="_blank">https://get.webgl.org/</a>)</li>
         <li>If on mobile, try closing other apps to free up memory</li>
         <li>If you see software rendering warnings, try using Chrome with <code>--ignore-gpu-blocklist</code> flag</li>
-        <li>Upload your own effect file using the "Upload Effect File" button</li>
+        <li>Upload a different effect file using the "Upload Different Effect" button</li>
       </ul>
     </div>
     
@@ -382,7 +382,7 @@
     async function initializeDeepARWithEffect(effectUrl, options = {}) {
       try {
         deeparStatus.innerHTML = `<span class="success">Initializing DeepAR...</span>`;
-        loadingText.textContent = 'Loading DeepAR SDK...';
+        loadingText.textContent = 'Loading effect...';
         addDebugMessage(`Starting DeepAR initialization with effect: ${effectUrl}`);
         
         deepar = await window.deepar.initialize({
@@ -509,15 +509,26 @@
     });
     
     // Initialize everything when the page loads
-    window.addEventListener('load', () => {
+    window.addEventListener('load', async () => {
       addDebugInfo();
       checkWebGLSupport();
       checkSoftwareRendering();
       setupEffectUpload();
       
-      // Prompt user to upload an effect file
-      loadingText.textContent = 'Please upload your effect file using the "Upload Effect File" button';
-      addDebugMessage('Ready for effect file upload');
+      // Try to load the basketball effect by default
+      try {
+        addDebugMessage('Attempting to load default basketball effect');
+        const success = await initializeDeepARWithEffect('./effects/basketball_white.deepar', { disableCamera: false });
+        
+        if (!success) {
+          // If loading from relative path fails, try without camera
+          addDebugMessage('Trying without camera for default effect');
+          await initializeDeepARWithEffect('./effects/basketball_white.deepar', { disableCamera: true });
+        }
+      } catch (error) {
+        addDebugMessage(`Failed to load default effect: ${error.message}`);
+        loadingText.textContent = 'Failed to load default effect. Please upload an effect file.';
+      }
     });
   </script>
 </body>
