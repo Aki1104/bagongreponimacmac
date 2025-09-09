@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeepAR - Basketball Effect</title>
+  <title>DeepAR Basketball Effect</title>
   <script src="https://cdn.jsdelivr.net/npm/deepar@5.6.19/js/deepar.js"></script>
   <style>
     * {
@@ -59,6 +59,7 @@
       overflow: hidden;
       box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
       position: relative;
+      background: rgba(0, 0, 0, 0.2);
     }
     
     #deepar-canvas {
@@ -126,6 +127,12 @@
       transform: translateY(0);
     }
     
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
     .status-panel {
       background: rgba(255, 255, 255, 0.1);
       padding: 15px;
@@ -172,6 +179,39 @@
       font-family: monospace;
       font-size: 0.8rem;
       opacity: 0.8;
+      max-height: 150px;
+      overflow-y: auto;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 10px;
+      border-radius: 5px;
+    }
+    
+    .troubleshooting {
+      margin-top: 15px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 640px;
+    }
+    
+    .troubleshooting h3 {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .troubleshooting h3::before {
+      content: "🔧";
+    }
+    
+    .troubleshooting ul {
+      padding-left: 20px;
+    }
+    
+    .troubleshooting li {
+      margin-bottom: 8px;
     }
     
     footer {
@@ -207,15 +247,15 @@
     <div id="deepar-canvas-container">
       <div class="loading-overlay" id="loading-overlay">
         <div class="loading-spinner"></div>
-        <p>Loading DeepAR effect...</p>
+        <p id="loading-text">Initializing DeepAR...</p>
       </div>
       <canvas id="deepar-canvas"></canvas>
     </div>
     
     <div class="controls">
-      <button id="switch-effect">Switch Effect</button>
-      <button id="toggle-camera">Switch Camera</button>
-      <button id="take-screenshot">Take Screenshot</button>
+      <button id="start-ar" disabled>Start AR Experience</button>
+      <button id="toggle-camera" disabled>Switch Camera</button>
+      <button id="take-screenshot" disabled>Take Screenshot</button>
     </div>
     
     <div class="status-panel">
@@ -226,6 +266,17 @@
         <p id="compatibility-status">Checking compatibility...</p>
         <div id="debug-info" class="debug-info"></div>
       </div>
+    </div>
+    
+    <div class="troubleshooting">
+      <h3>Troubleshooting Tips</h3>
+      <ul>
+        <li>Allow camera permissions when prompted</li>
+        <li>Use a modern browser like Chrome, Firefox, or Edge</li>
+        <li>Ensure hardware acceleration is enabled in your browser settings</li>
+        <li>Check that WebGL is enabled (visit <a href="https://get.webgl.org/" style="color: #80c0ff;">https://get.webgl.org/</a>)</li>
+        <li>If on mobile, try closing other apps to free up memory</li>
+      </ul>
     </div>
   </div>
   
@@ -240,6 +291,22 @@
     const deeparStatus = document.getElementById('deepar-status');
     const compatibilityStatus = document.getElementById('compatibility-status');
     const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingText = document.getElementById('loading-text');
+    const startArButton = document.getElementById('start-ar');
+    const toggleCameraButton = document.getElementById('toggle-camera');
+    const takeScreenshotButton = document.getElementById('take-screenshot');
+    
+    let deepar = null;
+    let isInitialized = false;
+    
+    // Add debug message to the debug info panel
+    function addDebugMessage(message) {
+      const messageElement = document.createElement('div');
+      messageElement.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      debugInfo.appendChild(messageElement);
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+      console.log(message);
+    }
     
     // Check WebGL support
     function checkWebGLSupport() {
@@ -249,13 +316,16 @@
         
         if (gl && gl instanceof WebGLRenderingContext) {
           webglStatus.innerHTML = `<span class="success">WebGL is supported!</span>`;
+          addDebugMessage('WebGL is supported');
           return true;
         } else {
           webglStatus.innerHTML = `<span class="error">WebGL not supported. Please use a modern browser.</span>`;
+          addDebugMessage('WebGL not supported');
           return false;
         }
       } catch (e) {
         webglStatus.innerHTML = `<span class="error">WebGL error: ${e.message}</span>`;
+        addDebugMessage(`WebGL error: ${e.message}`);
         return false;
       }
     }
@@ -265,12 +335,15 @@
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl');
       
-      if (!gl) return false;
+      if (!gl) {
+        addDebugMessage('Could not create WebGL context for renderer detection');
+        return false;
+      }
       
-      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-      if (debugInfo) {
-        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        compatibilityStatus.textContent = `Renderer: ${renderer}`;
+      const debugInfoExt = gl.getExtension('WEBGL_debug_renderer_info');
+      if (debugInfoExt) {
+        const renderer = gl.getParameter(debugInfoExt.UNMASKED_RENDERER_WEBGL);
+        addDebugMessage(`WebGL Renderer: ${renderer}`);
         
         if (renderer.includes('SwiftShader') || 
             renderer.includes('Google SwiftShader') || 
@@ -284,25 +357,31 @@
       }
       
       compatibilityStatus.textContent = "Could not detect renderer info";
+      addDebugMessage('WEBGL_debug_renderer_info extension not available');
       return false;
     }
     
     // Initialize DeepAR
     async function initializeDeepAR() {
       if (!checkWebGLSupport()) {
+        loadingText.textContent = 'WebGL not supported. Please use a modern browser.';
         return;
       }
       
-      checkSoftwareRendering();
+      const isSoftwareRendering = checkSoftwareRendering();
       
       try {
         deeparStatus.innerHTML = `<span class="success">Initializing DeepAR...</span>`;
+        loadingText.textContent = 'Loading DeepAR SDK...';
+        addDebugMessage('Starting DeepAR initialization');
         
-        const deepar = await window.deepar.initialize({
+        // Use a working effect URL from DeepAR's examples
+        const effectUrl = 'https://cdn.jsdelivr.net/npm/deepar/effects/alien';
+        
+        deepar = await window.deepar.initialize({
           licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
           canvas: document.getElementById('deepar-canvas'),
-          // Use a placeholder effect since we don't have the actual file
-          effect: 'https://cdn.jsdelivr.net/gh/DeepARSDK/quickstart-javascript@main/effects/aviators',
+          effect: effectUrl,
           additionalOptions: {
             cameraConfig: {
               disableDefaultCamera: false,
@@ -311,34 +390,65 @@
         });
         
         deeparStatus.innerHTML = `<span class="success">DeepAR initialized successfully!</span>`;
-        loadingOverlay.style.opacity = '0';
-        setTimeout(() => {
-          loadingOverlay.style.display = 'none';
-        }, 300);
+        addDebugMessage('DeepAR initialized successfully');
         
-        // Set up button handlers
-        document.getElementById('switch-effect').addEventListener('click', () => {
-          // In a real implementation, you would switch between effects
-          alert('Effect switching would happen here with a real effect file');
-        });
+        // Enable buttons
+        startArButton.disabled = false;
+        toggleCameraButton.disabled = false;
+        takeScreenshotButton.disabled = false;
         
-        document.getElementById('toggle-camera').addEventListener('click', () => {
-          deepar.switchCamera();
-        });
-        
-        document.getElementById('take-screenshot').addEventListener('click', () => {
-          deepar.takeScreenshot().then(screenshot => {
-            const link = document.createElement('a');
-            link.download = 'deepar-screenshot.png';
-            link.href = screenshot;
-            link.click();
-          });
-        });
+        loadingText.textContent = 'DeepAR ready! Click Start AR Experience';
+        isInitialized = true;
         
       } catch (error) {
         console.error('DeepAR initialization error:', error);
         deeparStatus.innerHTML = `<span class="error">Failed to initialize DeepAR: ${error.message}</span>`;
-        loadingOverlay.querySelector('p').textContent = 'Failed to load effect';
+        loadingText.textContent = 'Failed to initialize DeepAR';
+        addDebugMessage(`DeepAR initialization error: ${error.message}`);
+        
+        // If initialization fails, try without camera
+        try {
+          addDebugMessage('Trying to initialize without camera...');
+          loadingText.textContent = 'Trying without camera access...';
+          
+          deepar = await window.deepar.initialize({
+            licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
+            canvas: document.getElementById('deepar-canvas'),
+            effect: 'https://cdn.jsdelivr.net/npm/deepar/effects/aviators',
+            additionalOptions: {
+              cameraConfig: {
+                disableDefaultCamera: true,
+              }
+            }
+          });
+          
+          deeparStatus.innerHTML = `<span class="success">DeepAR initialized without camera!</span>`;
+          addDebugMessage('DeepAR initialized without camera');
+          
+          // Enable only screenshot button
+          takeScreenshotButton.disabled = false;
+          loadingText.textContent = 'DeepAR initialized (no camera access)';
+          isInitialized = true;
+          
+        } catch (secondError) {
+          addDebugMessage(`Second initialization attempt also failed: ${secondError.message}`);
+          loadingText.textContent = 'Failed to initialize DeepAR completely';
+        }
+      }
+    }
+    
+    // Start AR experience
+    function startAR() {
+      if (!deepar) return;
+      
+      try {
+        addDebugMessage('Starting AR experience');
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 300);
+      } catch (error) {
+        addDebugMessage(`Error starting AR: ${error.message}`);
       }
     }
     
@@ -353,8 +463,40 @@
         `Viewport: ${window.innerWidth}x${window.innerHeight}`
       ];
       
-      debugInfo.innerHTML = info.map(item => `<div>${item}</div>`).join('');
+      info.forEach(item => addDebugMessage(item));
     }
+    
+    // Set up button handlers
+    startArButton.addEventListener('click', startAR);
+    
+    toggleCameraButton.addEventListener('click', () => {
+      if (deepar) {
+        try {
+          deepar.switchCamera();
+          addDebugMessage('Switching camera');
+        } catch (error) {
+          addDebugMessage(`Error switching camera: ${error.message}`);
+        }
+      }
+    });
+    
+    takeScreenshotButton.addEventListener('click', () => {
+      if (deepar) {
+        try {
+          deepar.takeScreenshot().then(screenshot => {
+            const link = document.createElement('a');
+            link.download = 'deepar-screenshot.png';
+            link.href = screenshot;
+            link.click();
+            addDebugMessage('Screenshot taken');
+          }).catch(error => {
+            addDebugMessage(`Screenshot error: ${error.message}`);
+          });
+        } catch (error) {
+          addDebugMessage(`Error taking screenshot: ${error.message}`);
+        }
+      }
+    });
     
     // Initialize everything when the page loads
     window.addEventListener('load', () => {
