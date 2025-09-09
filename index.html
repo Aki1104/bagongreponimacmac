@@ -262,6 +262,7 @@
       <button id="toggle-camera" disabled>Switch Camera</button>
       <button id="take-screenshot" disabled>Take Screenshot</button>
       <button id="upload-effect">Upload Different Effect</button>
+      <button id="reload-camera">Reload Camera</button>
     </div>
     
     <div class="status-panel">
@@ -283,6 +284,7 @@
         <li>Ensure good lighting conditions</li>
         <li>Move slowly to allow the effect to track your feet</li>
         <li>If the effect doesn't appear, try moving closer or further from the camera</li>
+        <li>Use the "Reload Camera" button if the camera stops working</li>
       </ul>
       <div class="camera-info" id="camera-info"></div>
     </div>
@@ -307,6 +309,7 @@
     const toggleCameraButton = document.getElementById('toggle-camera');
     const takeScreenshotButton = document.getElementById('take-screenshot');
     const uploadEffectButton = document.getElementById('upload-effect');
+    const reloadCameraButton = document.getElementById('reload-camera');
     const effectUploadInput = document.getElementById('effect-upload');
     const cameraInfo = document.getElementById('camera-info');
     
@@ -315,6 +318,7 @@
     let currentEffect = null;
     let availableCameras = [];
     let currentCameraIndex = 0;
+    let isFrontCamera = true;
     
     // Add debug message to the debug info panel
     function addDebugMessage(message) {
@@ -420,6 +424,10 @@
           toggleCameraButton.disabled = true;
         }
         
+        // For mobile devices, try to use the front camera by default
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const cameraParams = isMobile ? { facingMode: 'user' } : {};
+        
         deepar = await window.deepar.initialize({
           licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
           canvas: document.getElementById('deepar-canvas'),
@@ -427,6 +435,8 @@
           additionalOptions: {
             cameraConfig: {
               disableDefaultCamera: options.disableCamera || false,
+              // Use front camera for mobile by default
+              ...(isMobile && { params: cameraParams })
             }
           }
         });
@@ -442,6 +452,7 @@
         // Enable buttons
         startArButton.disabled = false;
         takeScreenshotButton.disabled = false;
+        reloadCameraButton.disabled = false;
         
         loadingText.textContent = 'DeepAR ready! Click Start AR Experience';
         isInitialized = true;
@@ -471,28 +482,77 @@
       }
     }
     
-    // Switch between available cameras
+    // Switch between front and back cameras
     async function switchCamera() {
-      if (!deepar || availableCameras.length <= 1) return;
+      if (!deepar) return;
       
       try {
-        currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
-        addDebugMessage(`Switching to camera ${currentCameraIndex}`);
+        isFrontCamera = !isFrontCamera;
+        const facingMode = isFrontCamera ? 'user' : 'environment';
+        addDebugMessage(`Switching to ${isFrontCamera ? 'front' : 'rear'} camera`);
         
-        // Switch camera using the correct DeepAR API
-        await deepar.switchCamera(availableCameras[currentCameraIndex].deviceId);
+        // Reinitialize DeepAR with the new camera
+        await reinitializeWithCamera(facingMode);
         
-        addDebugMessage(`Switched to camera ${currentCameraIndex}`);
-        cameraInfo.textContent = `Using camera: ${availableCameras[currentCameraIndex].label || `Camera ${currentCameraIndex + 1}`}`;
+        cameraInfo.textContent = `Using ${isFrontCamera ? 'front' : 'rear'} camera`;
       } catch (error) {
         addDebugMessage(`Error switching camera: ${error.message}`);
-        // Fallback: try the simple switchCamera method without parameters
-        try {
-          await deepar.switchCamera();
-          addDebugMessage('Used fallback camera switching method');
-        } catch (fallbackError) {
-          addDebugMessage(`Fallback camera switching also failed: ${fallbackError.message}`);
-        }
+      }
+    }
+    
+    // Reinitialize DeepAR with specific camera parameters
+    async function reinitializeWithCamera(facingMode) {
+      if (!deepar || !currentEffect) return;
+      
+      try {
+        // Show loading state
+        loadingOverlay.style.display = 'flex';
+        loadingText.textContent = 'Switching camera...';
+        
+        // Dispose of the current DeepAR instance
+        deepar.dispose();
+        
+        // Reinitialize with the new camera parameters
+        deepar = await window.deepar.initialize({
+          licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
+          canvas: document.getElementById('deepar-canvas'),
+          effect: currentEffect,
+          additionalOptions: {
+            cameraConfig: {
+              params: { facingMode: facingMode }
+            }
+          }
+        });
+        
+        // Hide loading state
+        loadingOverlay.style.display = 'none';
+        addDebugMessage(`Successfully switched to ${facingMode} camera`);
+      } catch (error) {
+        addDebugMessage(`Error reinitializing camera: ${error.message}`);
+        loadingOverlay.style.display = 'none';
+      }
+    }
+    
+    // Reload the camera
+    async function reloadCamera() {
+      if (!deepar || !currentEffect) return;
+      
+      try {
+        addDebugMessage('Reloading camera...');
+        loadingOverlay.style.display = 'flex';
+        loadingText.textContent = 'Reloading camera...';
+        
+        // Dispose of the current DeepAR instance
+        deepar.dispose();
+        
+        // Reinitialize with the same effect
+        await initializeDeepARWithEffect(currentEffect, { disableCamera: false });
+        
+        loadingOverlay.style.display = 'none';
+        addDebugMessage('Camera reloaded successfully');
+      } catch (error) {
+        addDebugMessage(`Error reloading camera: ${error.message}`);
+        loadingOverlay.style.display = 'none';
       }
     }
     
@@ -556,8 +616,8 @@
     
     // Set up button handlers
     startArButton.addEventListener('click', startAR);
-    
     toggleCameraButton.addEventListener('click', switchCamera);
+    reloadCameraButton.addEventListener('click', reloadCamera);
     
     takeScreenshotButton.addEventListener('click', () => {
       if (deepar) {
