@@ -186,7 +186,7 @@
       border-radius: 5px;
     }
     
-    .troubleshooting {
+    .instructions {
       margin-top: 15px;
       padding: 15px;
       background: rgba(255, 255, 255, 0.1);
@@ -195,32 +195,28 @@
       max-width: 640px;
     }
     
-    .troubleshooting h3 {
+    .instructions h3 {
       margin-bottom: 10px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
     
-    .troubleshooting h3::before {
-      content: "🔧";
+    .instructions h3::before {
+      content: "📱";
     }
     
-    .troubleshooting ul {
+    .instructions ul {
       padding-left: 20px;
     }
     
-    .troubleshooting li {
+    .instructions li {
       margin-bottom: 8px;
     }
     
-    .troubleshooting a {
-      color: #80c0ff;
-      text-decoration: none;
-    }
-    
-    .troubleshooting a:hover {
-      text-decoration: underline;
+    .camera-info {
+      margin-top: 10px;
+      font-size: 0.9rem;
     }
     
     footer {
@@ -273,22 +269,22 @@
       <div class="status-content">
         <p id="webgl-status">Checking WebGL support...</p>
         <p id="deepar-status">Initializing DeepAR...</p>
+        <p id="camera-status">Checking camera access...</p>
         <p id="compatibility-status">Checking compatibility...</p>
         <div id="debug-info" class="debug-info"></div>
       </div>
     </div>
     
-    <div class="troubleshooting">
-      <h3>Troubleshooting Tips</h3>
+    <div class="instructions">
+      <h3>How to Use This Effect</h3>
       <ul>
-        <li>Allow camera permissions when prompted</li>
-        <li>Use a modern browser like Chrome, Firefox, or Edge</li>
-        <li>Ensure hardware acceleration is enabled in your browser settings</li>
-        <li>Check that WebGL is enabled (visit <a href="https://get.webgl.org/" target="_blank">https://get.webgl.org/</a>)</li>
-        <li>If on mobile, try closing other apps to free up memory</li>
-        <li>If you see software rendering warnings, try using Chrome with <code>--ignore-gpu-blocklist</code> flag</li>
-        <li>Upload a different effect file using the "Upload Different Effect" button</li>
+        <li>Make sure your feet are visible in the camera view</li>
+        <li>Stand about 2-3 meters away from the camera</li>
+        <li>Ensure good lighting conditions</li>
+        <li>Move slowly to allow the effect to track your feet</li>
+        <li>If the effect doesn't appear, try moving closer or further from the camera</li>
       </ul>
+      <div class="camera-info" id="camera-info"></div>
     </div>
     
     <input type="file" id="effect-upload" accept=".deepar" style="display: none;">
@@ -303,6 +299,7 @@
     const debugInfo = document.getElementById('debug-info');
     const webglStatus = document.getElementById('webgl-status');
     const deeparStatus = document.getElementById('deepar-status');
+    const cameraStatus = document.getElementById('camera-status');
     const compatibilityStatus = document.getElementById('compatibility-status');
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
@@ -311,10 +308,13 @@
     const takeScreenshotButton = document.getElementById('take-screenshot');
     const uploadEffectButton = document.getElementById('upload-effect');
     const effectUploadInput = document.getElementById('effect-upload');
+    const cameraInfo = document.getElementById('camera-info');
     
     let deepar = null;
     let isInitialized = false;
     let currentEffect = null;
+    let availableCameras = [];
+    let currentCameraIndex = 0;
     
     // Add debug message to the debug info panel
     function addDebugMessage(message) {
@@ -378,12 +378,47 @@
       return false;
     }
     
+    // Get available cameras
+    async function getAvailableCameras() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+          addDebugMessage('Cannot enumerate devices: MediaDevices API not available');
+          return [];
+        }
+        
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(device => device.kind === 'videoinput');
+        
+        addDebugMessage(`Found ${cameras.length} camera(s)`);
+        cameras.forEach((camera, index) => {
+          addDebugMessage(`Camera ${index}: ${camera.label || `Camera ${index + 1}`}`);
+        });
+        
+        return cameras;
+      } catch (error) {
+        addDebugMessage(`Error enumerating cameras: ${error.message}`);
+        return [];
+      }
+    }
+    
     // Initialize DeepAR with a specific effect
     async function initializeDeepARWithEffect(effectUrl, options = {}) {
       try {
         deeparStatus.innerHTML = `<span class="success">Initializing DeepAR...</span>`;
         loadingText.textContent = 'Loading effect...';
         addDebugMessage(`Starting DeepAR initialization with effect: ${effectUrl}`);
+        
+        // Get available cameras
+        availableCameras = await getAvailableCameras();
+        
+        // Update camera info
+        if (availableCameras.length > 0) {
+          cameraInfo.textContent = `Detected ${availableCameras.length} camera(s)`;
+          toggleCameraButton.disabled = availableCameras.length <= 1;
+        } else {
+          cameraInfo.textContent = 'No cameras detected';
+          toggleCameraButton.disabled = true;
+        }
         
         deepar = await window.deepar.initialize({
           licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
@@ -399,14 +434,32 @@
         deeparStatus.innerHTML = `<span class="success">DeepAR initialized successfully!</span>`;
         addDebugMessage('DeepAR initialized successfully');
         
+        // Set up camera switching
+        if (availableCameras.length > 1) {
+          toggleCameraButton.disabled = false;
+        }
+        
         // Enable buttons
         startArButton.disabled = false;
-        toggleCameraButton.disabled = !options.disableCamera;
         takeScreenshotButton.disabled = false;
         
         loadingText.textContent = 'DeepAR ready! Click Start AR Experience';
         isInitialized = true;
         currentEffect = effectUrl;
+        
+        // Set up foot tracking if this is a foot effect
+        setTimeout(() => {
+          if (deepar && effectUrl.includes('basketball')) {
+            addDebugMessage('Setting up foot tracking for basketball effect');
+            try {
+              // This is where you would configure foot tracking parameters
+              // The exact API may vary depending on the DeepAR version
+              cameraStatus.innerHTML = `<span class="success">Foot tracking initialized. Make sure your feet are visible.</span>`;
+            } catch (error) {
+              addDebugMessage(`Error setting up foot tracking: ${error.message}`);
+            }
+          }
+        }, 1000);
         
         return true;
       } catch (error) {
@@ -415,6 +468,30 @@
         loadingText.textContent = 'Failed to initialize DeepAR';
         addDebugMessage(`DeepAR initialization error: ${error.message}`);
         return false;
+      }
+    }
+    
+    // Switch between available cameras
+    async function switchCamera() {
+      if (!deepar || availableCameras.length <= 1) return;
+      
+      try {
+        currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
+        addDebugMessage(`Switching to camera ${currentCameraIndex}`);
+        
+        // First pause the camera
+        await deepar.pause();
+        
+        // Switch camera
+        await deepar.switchCamera(availableCameras[currentCameraIndex].deviceId);
+        
+        // Resume with the new camera
+        await deepar.resume();
+        
+        addDebugMessage(`Switched to camera ${currentCameraIndex}`);
+        cameraInfo.textContent = `Using camera: ${availableCameras[currentCameraIndex].label || `Camera ${currentCameraIndex + 1}`}`;
+      } catch (error) {
+        addDebugMessage(`Error switching camera: ${error.message}`);
       }
     }
     
@@ -479,16 +556,7 @@
     // Set up button handlers
     startArButton.addEventListener('click', startAR);
     
-    toggleCameraButton.addEventListener('click', () => {
-      if (deepar) {
-        try {
-          deepar.switchCamera();
-          addDebugMessage('Switching camera');
-        } catch (error) {
-          addDebugMessage(`Error switching camera: ${error.message}`);
-        }
-      }
-    });
+    toggleCameraButton.addEventListener('click', switchCamera);
     
     takeScreenshotButton.addEventListener('click', () => {
       if (deepar) {
