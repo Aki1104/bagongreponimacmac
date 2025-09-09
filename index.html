@@ -1,30 +1,375 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeepAR — My Effect</title>
-  <script src="https://cdn.jsdelivr.net/npm/deepar/js/deepar.js"></script>
-  <style>
-    body { margin: 0; }
-    #deepar-div { width: 100vw; height: 100vh; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepAR Camera Control</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff5e62, #ff9966);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            display: inline-block;
+        }
+        
+        .description {
+            max-width: 800px;
+            margin: 0 auto 30px;
+            line-height: 1.6;
+            color: #f8f8f8;
+            text-align: center;
+        }
+        
+        .content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .camera-container {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .iframe-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 75%; /* 4:3 Aspect ratio */
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+            margin-bottom: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .control-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 14px 20px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #ff5e62, #ff9966);
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 150px;
+            font-size: 16px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 94, 98, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: #5a6872;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        .status h3 {
+            margin-bottom: 10px;
+            color: #ff9966;
+        }
+        
+        #statusMessage {
+            color: #ffcc99;
+            line-height: 1.5;
+        }
+        
+        .camera-info {
+            display: flex;
+            align-items: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        
+        .camera-icon {
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .instructions h2 {
+            margin-bottom: 15px;
+            color: #ff9966;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+        
+        .instructions li {
+            margin-bottom: 10px;
+        }
+        
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .highlight {
+            color: #ff9966;
+            font-weight: bold;
+        }
+        
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
-  <div id="deepar-div"></div>
+    <div class="container">
+        <header>
+            <h1>DeepAR Camera Control Solution</h1>
+            <p class="description">Control the DeepAR camera from outside the iframe using the buttons below</p>
+        </header>
+        
+        <div class="content">
+            <div class="camera-container">
+                <h2>DeepAR Viewer</h2>
+                <div class="iframe-wrapper">
+                    <!-- DeepAR iframe -->
+                    <iframe id="deeparIframe" src="https://sdk.developer.deepar.ai/effectTester/index.html?url1=https%3A%2F%2Fdeepar-temporary-resources-prod.s3.eu-west-1.amazonaws.com%2F95540e8f-b923-48a4-ab64-0637ff7c00c7&name1=macmacpalo.deeparproj&face1=0" title="DeepAR Camera"></iframe>
+                </div>
+                <div class="camera-info">
+                    <div class="camera-icon">📷</div>
+                    <div>
+                        <p>Camera is currently: <strong id="currentCamera">Front Camera</strong></p>
+                        <p>Status: <span id="cameraStatus">Active</span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <h2>Camera Controls</h2>
+                <div class="control-buttons">
+                    <button id="switchCameraBtn" class="btn">Switch Camera</button>
+                    <button id="startCameraBtn" class="btn">Start Camera</button>
+                    <button id="stopCameraBtn" class="btn">Stop Camera</button>
+                </div>
+                
+                <div class="status">
+                    <h3>Status</h3>
+                    <p id="statusMessage">Ready to control camera. The iframe is loaded with your DeepAR effect.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h2>Implementation Notes</h2>
+            <ol>
+                <li>This solution uses your provided DeepAR URL: <span class="highlight">https://sdk.developer.deepar.ai/effectTester/...</span></li>
+                <li>The <span class="highlight">Switch Camera</span> button should work if the iframe has camera access</li>
+                <li>If the camera doesn't switch, it may be due to browser security restrictions</li>
+                <li>For a production solution, you may need to:</li>
+            </ol>
+            
+            <div class="code">
+// In your DeepAR iframe page, add this message listener:
+window.addEventListener('message', function(event) {
+    // Verify the origin for security
+    if (event.origin !== "https://your-parent-domain.com") return;
+    
+    var message = event.data;
+    if (message.command === 'switchCamera') {
+        // Call DeepAR switchCamera() function here
+        if (typeof deepar !== 'undefined') {
+            deepar.switchCamera();
+        }
+    }
+});
 
-  <script>
-    (async () => {
-      const deepAR = await deepar.initialize({
-        licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
-        previewElement: document.querySelector('#deepar-div'),
-        // 👇 point to your exported effect folder (relative or absolute URL)
-        effect: './effects/basketball_white.deepar'
-      });
+// After switching camera, send status back
+function sendStatusToParent(status) {
+    window.parent.postMessage({
+        type: 'cameraStatus',
+        status: status,
+        camera: deepar.getCurrentCameraName() // or your method to get current camera
+    }, "https://your-parent-domain.com");
+}
+            </div>
+            
+            <p style="margin-top: 15px;"><strong>Note:</strong> Due to browser security policies, cross-origin iframe control may be limited unless both sites have proper CORS configuration.</p>
+        </div>
+    </div>
 
-      // If you want to switch later to another effect:
-      // await deepAR.switchEffect('./effects/another-effect');
-    })();
-  </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const iframe = document.getElementById('deeparIframe');
+            const switchBtn = document.getElementById('switchCameraBtn');
+            const startBtn = document.getElementById('startCameraBtn');
+            const stopBtn = document.getElementById('stopCameraBtn');
+            const statusMessage = document.getElementById('statusMessage');
+            const currentCamera = document.getElementById('currentCamera');
+            const cameraStatus = document.getElementById('cameraStatus');
+            
+            // Set up event listeners for buttons
+            switchBtn.addEventListener('click', function() {
+                statusMessage.textContent = "Attempting to switch camera...";
+                
+                try {
+                    // For security reasons, browsers may block direct control of cross-origin iframes
+                    // This is a theoretical implementation - may not work due to CORS restrictions
+                    iframe.contentWindow.postMessage({ 
+                        command: 'switchCamera' 
+                    }, 'https://sdk.developer.deepar.ai');
+                    
+                    statusMessage.innerHTML = "Switch command sent. If the camera doesn't change, it may be due to browser security restrictions.<br>Check the browser console for any error messages.";
+                    
+                    // Simulate camera switch for demo purposes
+                    setTimeout(() => {
+                        const cameras = ['Front Camera', 'Back Camera'];
+                        const current = currentCamera.textContent;
+                        const newCamera = current === 'Front Camera' ? 'Back Camera' : 'Front Camera';
+                        
+                        currentCamera.textContent = newCamera;
+                        statusMessage.innerHTML = "Camera switched successfully (simulated for demo).<br>In a production environment with proper CORS setup, this would control the actual DeepAR iframe.";
+                    }, 1500);
+                    
+                } catch (error) {
+                    statusMessage.innerHTML = "Error: " + error.message + "<br>This is likely due to cross-origin security restrictions.";
+                    console.error("Iframe communication error:", error);
+                }
+            });
+            
+            startBtn.addEventListener('click', function() {
+                statusMessage.textContent = "Starting camera...";
+                cameraStatus.textContent = "Active";
+                
+                // Simulate camera starting for demo purposes
+                setTimeout(() => {
+                    statusMessage.textContent = "Camera started (simulated for demo)";
+                    switchBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    startBtn.disabled = true;
+                }, 1000);
+            });
+            
+            stopBtn.addEventListener('click', function() {
+                statusMessage.textContent = "Stopping camera...";
+                cameraStatus.textContent = "Inactive";
+                
+                // Simulate camera stopping for demo purposes
+                setTimeout(() => {
+                    statusMessage.textContent = "Camera stopped (simulated for demo)";
+                    switchBtn.disabled = true;
+                    stopBtn.disabled = true;
+                    startBtn.disabled = false;
+                }, 1000);
+            });
+            
+            // Initial state
+            switchBtn.disabled = false;
+            stopBtn.disabled = true;
+            startBtn.disabled = true;
+            
+            // Listen for messages from iframe (if properly configured on both ends)
+            window.addEventListener('message', function(event) {
+                // In a real implementation, you would check event.origin for security
+                if (event.data && event.data.type === 'cameraStatus') {
+                    statusMessage.textContent = event.data.status;
+                    if (event.data.camera) {
+                        currentCamera.textContent = event.data.camera;
+                    }
+                }
+            });
+        });
+    </script>
 </body>
 </html>
