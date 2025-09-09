@@ -265,6 +265,7 @@
       <button id="start-ar" disabled>Start AR Experience</button>
       <button id="toggle-camera" disabled>Switch Camera</button>
       <button id="take-screenshot" disabled>Take Screenshot</button>
+      <button id="upload-effect">Upload Effect File</button>
     </div>
     
     <div class="status-panel">
@@ -286,8 +287,11 @@
         <li>Check that WebGL is enabled (visit <a href="https://get.webgl.org/" target="_blank">https://get.webgl.org/</a>)</li>
         <li>If on mobile, try closing other apps to free up memory</li>
         <li>If you see software rendering warnings, try using Chrome with <code>--ignore-gpu-blocklist</code> flag</li>
+        <li>Upload your own effect file using the "Upload Effect File" button</li>
       </ul>
     </div>
+    
+    <input type="file" id="effect-upload" accept=".deepar" style="display: none;">
   </div>
   
   <footer>
@@ -305,9 +309,12 @@
     const startArButton = document.getElementById('start-ar');
     const toggleCameraButton = document.getElementById('toggle-camera');
     const takeScreenshotButton = document.getElementById('take-screenshot');
+    const uploadEffectButton = document.getElementById('upload-effect');
+    const effectUploadInput = document.getElementById('effect-upload');
     
     let deepar = null;
     let isInitialized = false;
+    let currentEffect = null;
     
     // Add debug message to the debug info panel
     function addDebugMessage(message) {
@@ -371,23 +378,12 @@
       return false;
     }
     
-    // Initialize DeepAR
-    async function initializeDeepAR() {
-      if (!checkWebGLSupport()) {
-        loadingText.textContent = 'WebGL not supported. Please use a modern browser.';
-        return;
-      }
-      
-      const isSoftwareRendering = checkSoftwareRendering();
-      
+    // Initialize DeepAR with a specific effect
+    async function initializeDeepARWithEffect(effectUrl, options = {}) {
       try {
         deeparStatus.innerHTML = `<span class="success">Initializing DeepAR...</span>`;
         loadingText.textContent = 'Loading DeepAR SDK...';
-        addDebugMessage('Starting DeepAR initialization');
-        
-        // Use a working effect URL from DeepAR's examples
-        // This is a known working effect from DeepAR's CDN
-        const effectUrl = 'https://cdn.jsdelivr.net/npm/deepar/effects/8bitHeads';
+        addDebugMessage(`Starting DeepAR initialization with effect: ${effectUrl}`);
         
         deepar = await window.deepar.initialize({
           licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
@@ -395,7 +391,7 @@
           effect: effectUrl,
           additionalOptions: {
             cameraConfig: {
-              disableDefaultCamera: false,
+              disableDefaultCamera: options.disableCamera || false,
             }
           }
         });
@@ -405,73 +401,103 @@
         
         // Enable buttons
         startArButton.disabled = false;
-        toggleCameraButton.disabled = false;
+        toggleCameraButton.disabled = !options.disableCamera;
         takeScreenshotButton.disabled = false;
         
         loadingText.textContent = 'DeepAR ready! Click Start AR Experience';
         isInitialized = true;
+        currentEffect = effectUrl;
         
+        return true;
       } catch (error) {
         console.error('DeepAR initialization error:', error);
         deeparStatus.innerHTML = `<span class="error">Failed to initialize DeepAR: ${error.message}</span>`;
         loadingText.textContent = 'Failed to initialize DeepAR';
         addDebugMessage(`DeepAR initialization error: ${error.message}`);
-        
-        // If initialization fails, try without camera
-        try {
-          addDebugMessage('Trying to initialize without camera...');
-          loadingText.textContent = 'Trying without camera access...';
-          
-          // Try a different effect that might work without camera
-          deepar = await window.deepar.initialize({
-            licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
-            canvas: document.getElementById('deepar-canvas'),
-            effect: 'https://cdn.jsdelivr.net/npm/deepar/effects/rain',
-            additionalOptions: {
-              cameraConfig: {
-                disableDefaultCamera: true,
-              }
-            }
-          });
-          
-          deeparStatus.innerHTML = `<span class="success">DeepAR initialized without camera!</span>`;
-          addDebugMessage('DeepAR initialized without camera');
-          
-          // Enable only screenshot button
-          takeScreenshotButton.disabled = false;
-          loadingText.textContent = 'DeepAR initialized (no camera access)';
-          isInitialized = true;
-          
-        } catch (secondError) {
-          addDebugMessage(`Second initialization attempt also failed: ${secondError.message}`);
-          loadingText.textContent = 'Failed to initialize DeepAR completely';
-          
-          // Last resort - try with a very simple effect
-          try {
-            addDebugMessage('Trying with simplest effect...');
-            deepar = await window.deepar.initialize({
-              licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
-              canvas: document.getElementById('deepar-canvas'),
-              effect: 'https://cdn.jsdelivr.net/npm/deepar/effects/background',
-              additionalOptions: {
-                cameraConfig: {
-                  disableDefaultCamera: true,
-                }
-              }
-            });
-            
-            deeparStatus.innerHTML = `<span class="success">DeepAR initialized with simple effect!</span>`;
-            addDebugMessage('DeepAR initialized with simple effect');
-            takeScreenshotButton.disabled = false;
-            loadingText.textContent = 'DeepAR initialized with simple effect';
-            isInitialized = true;
-            
-          } catch (thirdError) {
-            addDebugMessage(`All initialization attempts failed: ${thirdError.message}`);
-            loadingText.textContent = 'All initialization attempts failed. Please check console for details.';
-          }
-        }
+        return false;
       }
+    }
+    
+    // Try multiple effect URLs
+    async function tryEffectUrls() {
+      // List of known working effect URLs
+      const effectUrls = [
+        // Try effects from DeepAR's official examples
+        'https://docs.deepar.ai/sample-effects/aviators.deepar',
+        'https://docs.deepar.ai/sample-effects/galaxy-bg.deepar',
+        'https://docs.deepar.ai/sample-effects/makeup.deepar',
+        'https://docs.deepar.ai/sample-effects/sunglasses.deepar',
+        
+        // Try effects from other known sources
+        'https://cdn.deepar.ai/effects/aviators',
+        'https://cdn.deepar.ai/effects/galaxy-bg',
+        
+        // Last resort - try a very simple effect from a different CDN
+        'https://firebasestorage.googleapis.com/v0/b/ar-effects-7bb5b.appspot.com/o/effects%2Fviking_helmet.deepar?alt=media'
+      ];
+      
+      // First try with camera enabled
+      for (const effectUrl of effectUrls) {
+        addDebugMessage(`Trying effect: ${effectUrl}`);
+        loadingText.textContent = `Trying effect: ${effectUrl.split('/').pop()}`;
+        
+        const success = await initializeDeepARWithEffect(effectUrl, { disableCamera: false });
+        if (success) return true;
+        
+        // If that fails, try without camera
+        addDebugMessage(`Trying without camera: ${effectUrl}`);
+        const successWithoutCamera = await initializeDeepARWithEffect(effectUrl, { disableCamera: true });
+        if (successWithoutCamera) return true;
+      }
+      
+      return false;
+    }
+    
+    // Initialize DeepAR
+    async function initializeDeepAR() {
+      if (!checkWebGLSupport()) {
+        loadingText.textContent = 'WebGL not supported. Please use a modern browser.';
+        return;
+      }
+      
+      checkSoftwareRendering();
+      
+      // Try to initialize with known effect URLs
+      const success = await tryEffectUrls();
+      
+      if (!success) {
+        addDebugMessage('All initialization attempts failed. Please upload your own effect file.');
+        loadingText.textContent = 'All initialization attempts failed. Please upload your own effect file.';
+      }
+    }
+    
+    // Handle effect file upload
+    function setupEffectUpload() {
+      uploadEffectButton.addEventListener('click', () => {
+        effectUploadInput.click();
+      });
+      
+      effectUploadInput.addEventListener('change', async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        if (!file.name.endsWith('.deepar')) {
+          addDebugMessage('Please select a .deepar effect file');
+          alert('Please select a .deepar effect file');
+          return;
+        }
+        
+        const objectUrl = URL.createObjectURL(file);
+        addDebugMessage(`Uploaded effect file: ${file.name}`);
+        loadingText.textContent = `Loading ${file.name}...`;
+        
+        // Try to initialize with the uploaded effect
+        const success = await initializeDeepARWithEffect(objectUrl, { disableCamera: false });
+        if (!success) {
+          // Try without camera if first attempt fails
+          await initializeDeepARWithEffect(objectUrl, { disableCamera: true });
+        }
+      });
     }
     
     // Start AR experience
@@ -538,6 +564,7 @@
     // Initialize everything when the page loads
     window.addEventListener('load', () => {
       addDebugInfo();
+      setupEffectUpload();
       initializeDeepAR();
     });
   </script>
