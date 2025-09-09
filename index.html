@@ -214,6 +214,15 @@
       margin-bottom: 8px;
     }
     
+    .troubleshooting a {
+      color: #80c0ff;
+      text-decoration: none;
+    }
+    
+    .troubleshooting a:hover {
+      text-decoration: underline;
+    }
+    
     footer {
       margin-top: 30px;
       text-align: center;
@@ -274,14 +283,15 @@
         <li>Allow camera permissions when prompted</li>
         <li>Use a modern browser like Chrome, Firefox, or Edge</li>
         <li>Ensure hardware acceleration is enabled in your browser settings</li>
-        <li>Check that WebGL is enabled (visit <a href="https://get.webgl.org/" style="color: #80c0ff;">https://get.webgl.org/</a>)</li>
+        <li>Check that WebGL is enabled (visit <a href="https://get.webgl.org/" target="_blank">https://get.webgl.org/</a>)</li>
         <li>If on mobile, try closing other apps to free up memory</li>
+        <li>If you see software rendering warnings, try using Chrome with <code>--ignore-gpu-blocklist</code> flag</li>
       </ul>
     </div>
   </div>
   
   <footer>
-    <p>Powered by DeepAR Web SDK v5.6.19 | Effect: Basketball White</p>
+    <p>Powered by DeepAR Web SDK v5.6.19 | Effect: Basketball</p>
   </footer>
 
   <script>
@@ -376,7 +386,8 @@
         addDebugMessage('Starting DeepAR initialization');
         
         // Use a working effect URL from DeepAR's examples
-        const effectUrl = 'https://cdn.jsdelivr.net/npm/deepar/effects/alien';
+        // This is a known working effect from DeepAR's CDN
+        const effectUrl = 'https://cdn.jsdelivr.net/npm/deepar/effects/8bitHeads';
         
         deepar = await window.deepar.initialize({
           licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
@@ -411,10 +422,11 @@
           addDebugMessage('Trying to initialize without camera...');
           loadingText.textContent = 'Trying without camera access...';
           
+          // Try a different effect that might work without camera
           deepar = await window.deepar.initialize({
             licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
             canvas: document.getElementById('deepar-canvas'),
-            effect: 'https://cdn.jsdelivr.net/npm/deepar/effects/aviators',
+            effect: 'https://cdn.jsdelivr.net/npm/deepar/effects/rain',
             additionalOptions: {
               cameraConfig: {
                 disableDefaultCamera: true,
@@ -433,6 +445,31 @@
         } catch (secondError) {
           addDebugMessage(`Second initialization attempt also failed: ${secondError.message}`);
           loadingText.textContent = 'Failed to initialize DeepAR completely';
+          
+          // Last resort - try with a very simple effect
+          try {
+            addDebugMessage('Trying with simplest effect...');
+            deepar = await window.deepar.initialize({
+              licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
+              canvas: document.getElementById('deepar-canvas'),
+              effect: 'https://cdn.jsdelivr.net/npm/deepar/effects/background',
+              additionalOptions: {
+                cameraConfig: {
+                  disableDefaultCamera: true,
+                }
+              }
+            });
+            
+            deeparStatus.innerHTML = `<span class="success">DeepAR initialized with simple effect!</span>`;
+            addDebugMessage('DeepAR initialized with simple effect');
+            takeScreenshotButton.disabled = false;
+            loadingText.textContent = 'DeepAR initialized with simple effect';
+            isInitialized = true;
+            
+          } catch (thirdError) {
+            addDebugMessage(`All initialization attempts failed: ${thirdError.message}`);
+            loadingText.textContent = 'All initialization attempts failed. Please check console for details.';
+          }
         }
       }
     }
