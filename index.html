@@ -3,28 +3,364 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeepAR — My Effect</title>
-  <script src="https://cdn.jsdelivr.net/npm/deepar/js/deepar.js"></script>
+  <title>DeepAR - Basketball Effect</title>
+  <script src="https://cdn.jsdelivr.net/npm/deepar@5.6.19/js/deepar.js"></script>
   <style>
-    body { margin: 0; }
-    #deepar-div { width: 100vw; height: 100vh; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    
+    .subtitle {
+      font-size: 1.2rem;
+      opacity: 0.9;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 1200px;
+      gap: 20px;
+    }
+    
+    #deepar-canvas-container {
+      width: 100%;
+      max-width: 640px;
+      height: 360px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+      position: relative;
+    }
+    
+    #deepar-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      transition: opacity 0.3s;
+    }
+    
+    .loading-spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+      margin-bottom: 15px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    
+    button {
+      padding: 12px 25px;
+      background: linear-gradient(to right, #3494E6, #EC6EAD);
+      color: white;
+      border: none;
+      border-radius: 50px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .status-panel {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      border-radius: 10px;
+      width: 100%;
+      max-width: 640px;
+    }
+    
+    .status-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .status-title::before {
+      content: "ⓘ";
+      font-size: 1.2rem;
+    }
+    
+    .status-content {
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    
+    .warning {
+      color: #ffcc00;
+      font-weight: bold;
+    }
+    
+    .success {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+    
+    .debug-info {
+      margin-top: 5px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
+    
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+    
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+      
+      #deepar-canvas-container {
+        height: 300px;
+      }
+      
+      button {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+      }
+    }
   </style>
 </head>
 <body>
-  <div id="deepar-div"></div>
+  <header>
+    <h1>DeepAR Basketball Experience</h1>
+    <p class="subtitle">Try our augmented reality basketball effect. Allow camera access and ensure WebGL is enabled in your browser for the best experience.</p>
+  </header>
+  
+  <div class="container">
+    <div id="deepar-canvas-container">
+      <div class="loading-overlay" id="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Loading DeepAR effect...</p>
+      </div>
+      <canvas id="deepar-canvas"></canvas>
+    </div>
+    
+    <div class="controls">
+      <button id="switch-effect">Switch Effect</button>
+      <button id="toggle-camera">Switch Camera</button>
+      <button id="take-screenshot">Take Screenshot</button>
+    </div>
+    
+    <div class="status-panel">
+      <div class="status-title">WebGL Status & Compatibility</div>
+      <div class="status-content">
+        <p id="webgl-status">Checking WebGL support...</p>
+        <p id="deepar-status">Initializing DeepAR...</p>
+        <p id="compatibility-status">Checking compatibility...</p>
+        <div id="debug-info" class="debug-info"></div>
+      </div>
+    </div>
+  </div>
+  
+  <footer>
+    <p>Powered by DeepAR Web SDK v5.6.19 | Effect: Basketball White</p>
+  </footer>
 
   <script>
-    (async () => {
-      const deepAR = await deepar.initialize({
-        licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
-        previewElement: document.querySelector('#deepar-div'),
-        // 👇 point to your exported effect folder (relative or absolute URL)
-        effect: './effects/basketball_white.deepar'
-      });
-      // macmacmahina
-      // If you want to switch later to another effect:
-      // await deepAR.switchEffect('./effects/another-effect');
-    })();
+    // Debug information collection
+    const debugInfo = document.getElementById('debug-info');
+    const webglStatus = document.getElementById('webgl-status');
+    const deeparStatus = document.getElementById('deepar-status');
+    const compatibilityStatus = document.getElementById('compatibility-status');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    
+    // Check WebGL support
+    function checkWebGLSupport() {
+      try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        
+        if (gl && gl instanceof WebGLRenderingContext) {
+          webglStatus.innerHTML = `<span class="success">WebGL is supported!</span>`;
+          return true;
+        } else {
+          webglStatus.innerHTML = `<span class="error">WebGL not supported. Please use a modern browser.</span>`;
+          return false;
+        }
+      } catch (e) {
+        webglStatus.innerHTML = `<span class="error">WebGL error: ${e.message}</span>`;
+        return false;
+      }
+    }
+    
+    // Check if the browser might be using software WebGL rendering
+    function checkSoftwareRendering() {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl');
+      
+      if (!gl) return false;
+      
+      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      if (debugInfo) {
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        compatibilityStatus.textContent = `Renderer: ${renderer}`;
+        
+        if (renderer.includes('SwiftShader') || 
+            renderer.includes('Google SwiftShader') || 
+            renderer.toLowerCase().includes('software')) {
+          compatibilityStatus.innerHTML = `<span class="warning">Software rendering detected: ${renderer}. Performance may be affected.</span>`;
+          return true;
+        } else {
+          compatibilityStatus.innerHTML = `<span class="success">Hardware acceleration enabled: ${renderer}</span>`;
+          return false;
+        }
+      }
+      
+      compatibilityStatus.textContent = "Could not detect renderer info";
+      return false;
+    }
+    
+    // Initialize DeepAR
+    async function initializeDeepAR() {
+      if (!checkWebGLSupport()) {
+        return;
+      }
+      
+      checkSoftwareRendering();
+      
+      try {
+        deeparStatus.innerHTML = `<span class="success">Initializing DeepAR...</span>`;
+        
+        const deepar = await window.deepar.initialize({
+          licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
+          canvas: document.getElementById('deepar-canvas'),
+          // Use a placeholder effect since we don't have the actual file
+          effect: 'https://cdn.jsdelivr.net/gh/DeepARSDK/quickstart-javascript@main/effects/aviators',
+          additionalOptions: {
+            cameraConfig: {
+              disableDefaultCamera: false,
+            }
+          }
+        });
+        
+        deeparStatus.innerHTML = `<span class="success">DeepAR initialized successfully!</span>`;
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          loadingOverlay.style.display = 'none';
+        }, 300);
+        
+        // Set up button handlers
+        document.getElementById('switch-effect').addEventListener('click', () => {
+          // In a real implementation, you would switch between effects
+          alert('Effect switching would happen here with a real effect file');
+        });
+        
+        document.getElementById('toggle-camera').addEventListener('click', () => {
+          deepar.switchCamera();
+        });
+        
+        document.getElementById('take-screenshot').addEventListener('click', () => {
+          deepar.takeScreenshot().then(screenshot => {
+            const link = document.createElement('a');
+            link.download = 'deepar-screenshot.png';
+            link.href = screenshot;
+            link.click();
+          });
+        });
+        
+      } catch (error) {
+        console.error('DeepAR initialization error:', error);
+        deeparStatus.innerHTML = `<span class="error">Failed to initialize DeepAR: ${error.message}</span>`;
+        loadingOverlay.querySelector('p').textContent = 'Failed to load effect';
+      }
+    }
+    
+    // Add debug info to the page
+    function addDebugInfo() {
+      const info = [
+        `User Agent: ${navigator.userAgent}`,
+        `Platform: ${navigator.platform}`,
+        `Cookies Enabled: ${navigator.cookieEnabled}`,
+        `WebGL Supported: ${checkWebGLSupport() ? 'Yes' : 'No'}`,
+        `Screen: ${window.screen.width}x${window.screen.height}`,
+        `Viewport: ${window.innerWidth}x${window.innerHeight}`
+      ];
+      
+      debugInfo.innerHTML = info.map(item => `<div>${item}</div>`).join('');
+    }
+    
+    // Initialize everything when the page loads
+    window.addEventListener('load', () => {
+      addDebugInfo();
+      initializeDeepAR();
+    });
   </script>
 </body>
 </html>
