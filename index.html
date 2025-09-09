@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DeepAR — My Effect</title>
+  <script src="https://cdn.jsdelivr.net/npm/deepar/js/deepar.js"></script>
+  <style>
+    body { margin: 0; }
+    #deepar-div { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="deepar-div"></div>
+
+  <script>
+    (async () => {
+      const deepAR = await deepar.initialize({
+        licenseKey: 'f228aa68f8eb4f7c86aff0726c2d15b6c23a09643a69a19482f8ad4d7e14b71c04e122f48695d2f2',
+        previewElement: document.querySelector('#deepar-div'),
+        // 👇 point to your exported effect folder (relative or absolute URL)
+        effect: './effects/basketball_white.deepar'
+      });
+
+      // If you want to switch later to another effect:
+      // await deepAR.switchEffect('./effects/another-effect');
+    })();
+  </script>
+</body>
+</html>
