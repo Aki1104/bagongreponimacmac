@@ -418,59 +418,6 @@
       }
     }
     
-    // Try multiple effect URLs
-    async function tryEffectUrls() {
-      // List of known working effect URLs
-      const effectUrls = [
-        // Try effects from DeepAR's official examples
-        'https://docs.deepar.ai/sample-effects/aviators.deepar',
-        'https://docs.deepar.ai/sample-effects/galaxy-bg.deepar',
-        'https://docs.deepar.ai/sample-effects/makeup.deepar',
-        'https://docs.deepar.ai/sample-effects/sunglasses.deepar',
-        
-        // Try effects from other known sources
-        'https://cdn.deepar.ai/effects/aviators',
-        'https://cdn.deepar.ai/effects/galaxy-bg',
-        
-        // Last resort - try a very simple effect from a different CDN
-        'https://firebasestorage.googleapis.com/v0/b/ar-effects-7bb5b.appspot.com/o/effects%2Fviking_helmet.deepar?alt=media'
-      ];
-      
-      // First try with camera enabled
-      for (const effectUrl of effectUrls) {
-        addDebugMessage(`Trying effect: ${effectUrl}`);
-        loadingText.textContent = `Trying effect: ${effectUrl.split('/').pop()}`;
-        
-        const success = await initializeDeepARWithEffect(effectUrl, { disableCamera: false });
-        if (success) return true;
-        
-        // If that fails, try without camera
-        addDebugMessage(`Trying without camera: ${effectUrl}`);
-        const successWithoutCamera = await initializeDeepARWithEffect(effectUrl, { disableCamera: true });
-        if (successWithoutCamera) return true;
-      }
-      
-      return false;
-    }
-    
-    // Initialize DeepAR
-    async function initializeDeepAR() {
-      if (!checkWebGLSupport()) {
-        loadingText.textContent = 'WebGL not supported. Please use a modern browser.';
-        return;
-      }
-      
-      checkSoftwareRendering();
-      
-      // Try to initialize with known effect URLs
-      const success = await tryEffectUrls();
-      
-      if (!success) {
-        addDebugMessage('All initialization attempts failed. Please upload your own effect file.');
-        loadingText.textContent = 'All initialization attempts failed. Please upload your own effect file.';
-      }
-    }
-    
     // Handle effect file upload
     function setupEffectUpload() {
       uploadEffectButton.addEventListener('click', () => {
@@ -564,8 +511,13 @@
     // Initialize everything when the page loads
     window.addEventListener('load', () => {
       addDebugInfo();
+      checkWebGLSupport();
+      checkSoftwareRendering();
       setupEffectUpload();
-      initializeDeepAR();
+      
+      // Prompt user to upload an effect file
+      loadingText.textContent = 'Please upload your effect file using the "Upload Effect File" button';
+      addDebugMessage('Ready for effect file upload');
     });
   </script>
 </body>
