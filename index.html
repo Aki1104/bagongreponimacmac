@@ -479,19 +479,20 @@
         currentCameraIndex = (currentCameraIndex + 1) % availableCameras.length;
         addDebugMessage(`Switching to camera ${currentCameraIndex}`);
         
-        // First pause the camera
-        await deepar.pause();
-        
-        // Switch camera
+        // Switch camera using the correct DeepAR API
         await deepar.switchCamera(availableCameras[currentCameraIndex].deviceId);
-        
-        // Resume with the new camera
-        await deepar.resume();
         
         addDebugMessage(`Switched to camera ${currentCameraIndex}`);
         cameraInfo.textContent = `Using camera: ${availableCameras[currentCameraIndex].label || `Camera ${currentCameraIndex + 1}`}`;
       } catch (error) {
         addDebugMessage(`Error switching camera: ${error.message}`);
+        // Fallback: try the simple switchCamera method without parameters
+        try {
+          await deepar.switchCamera();
+          addDebugMessage('Used fallback camera switching method');
+        } catch (fallbackError) {
+          addDebugMessage(`Fallback camera switching also failed: ${fallbackError.message}`);
+        }
       }
     }
     
